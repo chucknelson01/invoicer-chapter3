@@ -3,7 +3,9 @@
 # requires: pip install awscli awsebcli
 
 # uncomment to debug
-#set -x
+set -x
+
+export LC_CTYPE=C
 
 fail() {
     echo configuration failed
@@ -13,7 +15,8 @@ fail() {
 export AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
 
 datetag=$(date +%Y%m%d%H%M)
-identifier=$(whoami)-invoicer-$datetag
+#identifier=$(whoami)-invoicer-$datetag
+identifier="chucknelson01"
 mkdir -p tmp/$identifier
 
 echo "Creating EBS application $identifier"
@@ -77,11 +80,11 @@ echo "ElasticBeanTalk application created"
 
 # Get the name of the latest Docker solution stack
 dockerstack="$(aws elasticbeanstalk list-available-solution-stacks | \
-    jq -r '.SolutionStacks[]' | grep -P '.+Amazon Linux.+Docker.+' | head -1)"
+    jq -r '.SolutionStacks[]' | grep -E '.+Amazon Linux.+Docker.+' | head -1)"
 
 # Create the EB API environment
 sed "s/POSTGRESPASSREPLACEME/$dbpass/" ebs-options.json > tmp/$identifier/ebs-options.json || fail
-sed -i "s/POSTGRESHOSTREPLACEME/$dbhost/" tmp/$identifier/ebs-options.json || fail
+sed "s/POSTGRESHOSTREPLACEME/$dbhost/" tmp/$identifier/ebs-options.json || fail
 aws elasticbeanstalk create-environment \
     --application-name $identifier \
     --environment-name $identifier-invoicer-api \
@@ -96,7 +99,7 @@ echo "API environment $apieid is being created"
 # grab the instance ID of the API environment, then its security group, and add that to the RDS security group
 while true;
 do
-    aws elasticbeanstalk describe-environment-resources --environment-id $apieid > tmp/$identifier/ebapidesc.json || fail
+    aws elasticbeanstalk describe-environment-resources --environment-id $apieid > tmp/$identifier/ebapidesc.json 
     ec2id=$(jq -r '.EnvironmentResources.Instances[0].Id' tmp/$identifier/ebapidesc.json)
     if [ "$ec2id" != "null" ]; then break; fi
     echo -n '.'
